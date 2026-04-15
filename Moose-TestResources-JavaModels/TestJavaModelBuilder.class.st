@@ -11,6 +11,30 @@ Class {
 }
 
 { #category : 'accessing' }
+TestJavaModelBuilder class >> generateAndLoadSimpleModelAt: sourceFolder named: aString [
+	"Simple model == a model without classpath needed for JDT to have accurate bindings"
+
+	(self pathToModelForSourceAt: sourceFolder) ifExists: [
+		^ self loadModelAt: sourceFolder withName: aString ].
+
+	self generateDependencyFreeJsonOf: sourceFolder.
+
+	^ self loadModelAt: sourceFolder withName: aString
+]
+
+{ #category : 'accessing' }
+TestJavaModelBuilder class >> generateDependencyFreeJsonOf: sourceFolder [
+
+	| importer |
+	importer := FamixJavaFoldersImporter new
+		            folders: { sourceFolder };
+		            yourself.
+
+	importer ensureVerveineJ.
+	importer generateJsonOfProjects
+]
+
+{ #category : 'accessing' }
 TestJavaModelBuilder class >> generateLibraryJAR [
 
 	LibC runCommand: ('mvn package -f {1}' format:
@@ -31,41 +55,81 @@ TestJavaModelBuilder class >> libraryModelClone [
 ]
 
 { #category : 'accessing' }
-TestJavaModelBuilder class >> loadLibraryModel [ 
+TestJavaModelBuilder class >> loadLibraryModel [
 
-	libraryModel := (FamixJavaFoldersImporter importFolders: { TestJavaModelBridge sources / 'library_project' }) anyOne.
-	libraryModel name: 'library_model'.
-	^ libraryModel 
+	| sourceFolder |
+	sourceFolder := TestJavaModelBridge sources / 'library_project'
+	                / 'target'.
+
+	^ self
+		  generateAndLoadSimpleModelAt: sourceFolder
+		  named: 'library_model'
 ]
 
 { #category : 'accessing' }
-TestJavaModelBuilder class >> loadLibraryModelClone [ 
+TestJavaModelBuilder class >> loadLibraryModelClone [
 
-	libraryModelClone := (FamixJavaFoldersImporter importFolders: { TestJavaModelBridge sources / 'library_project' }) anyOne.
-	libraryModelClone name: 'library_model_clone'.
-	^ libraryModelClone 
+	| sourceFolder |
+	sourceFolder := TestJavaModelBridge sources / 'library_project'
+	                / 'target'.
+
+	^ self
+		  generateAndLoadSimpleModelAt: sourceFolder
+		  named: 'library_model_clone'
 ]
 
 { #category : 'accessing' }
 TestJavaModelBuilder class >> loadMainModel [
 
-	| importer |
+	| importer sourceFolder |
+	sourceFolder := (TestJavaModelBridge sources / 'main_project').
+	
+	(self pathToModelForSourceAt: sourceFolder) ifExists: [
+		^ self loadModelAt: sourceFolder withName: 'main_model' ].
+	
 	self generateLibraryJAR.
+
 	importer := FamixJavaFoldersImporter new
 		            autoClasspath:
-			            (TestJavaModelBridge sources / 'library_project' / 'target');
+			            TestJavaModelBridge sources / 'library_project'
+			            / 'target';
 		            folders:
-			            { (TestJavaModelBridge sources / 'main_project') };
+			            { sourceFolder };
 		            yourself.
-	mainModel := importer import anyOne.
-	mainModel name: 'main_model'.
-	^ mainModel
+
+	importer ensureVerveineJ.
+	importer generateJsonOfProjects.
+	sourceFolder asFileReference
+		readStreamDo: [ :st | FamixJavaModel new importFromJSONStream: st ].
+
+	^ self loadModelAt: sourceFolder withName: 'main_model'
+]
+
+{ #category : 'accessing' }
+TestJavaModelBuilder class >> loadModelAt: sourceFolder withName: aString [
+
+	| model |
+	model := (self pathToModelForSourceAt: sourceFolder) readStreamDo: [ :st |
+		FamixJavaModel new importFromJSONStream: st ].
+	
+	model name: aString.
+	^ model
 ]
 
 { #category : 'accessing' }
 TestJavaModelBuilder class >> mainModel [
 
 	^ mainModel ifNil: [ self loadMainModel ]
+]
+
+{ #category : 'accessing' }
+TestJavaModelBuilder class >> pathToModelForSourceAt: sourceFolder [
+
+	| importer |
+	importer := FamixJavaFoldersImporter new
+		            folders: { sourceFolder };
+		            yourself.
+	^ (importer jsonForFolder: importer folders anyOne) asFileReference
 ]
 
 { #category : 'as yet unclassified' }
