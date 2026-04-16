@@ -107,7 +107,8 @@ TestJavaModelBuilder class >> loadMainModel [
 
 	importer ensureVerveineJ.
 	importer generateJsonOfProjects.
-	sourceFolder asFileReference
+
+	(importer jsonForFolder: sourceFolder) asFileReference
 		readStreamDo: [ :st | FamixJavaModel new importFromJSONStream: st ].
 
 	^ self loadModelAt: sourceFolder withName: 'main_model'
