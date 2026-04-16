@@ -11,6 +11,14 @@ Class {
 }
 
 { #category : 'accessing' }
+TestJavaModelBuilder class >> flush [
+
+	| sourceFolder |
+	sourceFolder := (TestJavaModelBridge sources / 'main_project').
+	(self pathToModelForSourceAt: sourceFolder) ensureDeleteAll 
+]
+
+{ #category : 'accessing' }
 TestJavaModelBuilder class >> generateAndLoadSimpleModelAt: sourceFolder named: aString [
 	"Simple model == a model without classpath needed for JDT to have accurate bindings"
 
